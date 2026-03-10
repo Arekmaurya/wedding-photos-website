@@ -146,6 +146,7 @@ def upload_single_file(service, folder_id, file):
 
 def list_all_uploads():
     """Fetches all folders and their files from the Wedding Uploads directory."""
+    service = get_drive_service()
     # 1. Get the "Wedding Uploads" root folder ID
     results = service.files().list(
         q="name='Wedding Uploads' and mimeType='application/vnd.google-apps.folder' and trashed=false",
