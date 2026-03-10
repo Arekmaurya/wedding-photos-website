@@ -287,7 +287,9 @@
             </div>
 
             <div class="form-group">
-                <label>Select Photos & Videos</label>
+                <label>Select Photos & Videos <span
+                        style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);">(Max 100
+                        files)</span></label>
                 <div class="file-upload-wrapper">
                     <div class="btn-custom-file">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -298,7 +300,7 @@
                         </svg>
                         <span>Choose files to upload...</span>
                     </div>
-                    <input type="file" name="file" multiple required>
+                    <input type="file" name="file" multiple required id="fileInput">
                 </div>
             </div>
 
@@ -308,17 +310,28 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const fileInput = document.querySelector('input[type="file"]');
+            const fileInput = document.getElementById('fileInput');
             const fileLabel = document.querySelector('.btn-custom-file span');
             const form = document.getElementById('uploadForm');
             const overlay = document.getElementById('loadingOverlay');
 
             fileInput.addEventListener('change', function (e) {
-                if (e.target.files.length > 1) {
-                    fileLabel.textContent = e.target.files.length + ' files selected';
+                const count = e.target.files.length;
+
+                if (count > 100) {
+                    alert('You can only select up to 100 files at a time. Please select fewer files.');
+                    e.target.value = ''; // Reset the input
+                    fileLabel.textContent = 'Choose files to upload...';
+                    fileLabel.style.color = 'var(--text-muted)';
+                    fileLabel.style.fontWeight = 'normal';
+                    return;
+                }
+
+                if (count > 1) {
+                    fileLabel.textContent = count + ' files selected';
                     fileLabel.style.color = 'var(--text-main)';
                     fileLabel.style.fontWeight = '500';
-                } else if (e.target.files.length === 1) {
+                } else if (count === 1) {
                     fileLabel.textContent = e.target.files[0].name;
                     fileLabel.style.color = 'var(--text-main)';
                     fileLabel.style.fontWeight = '500';
