@@ -1,14 +1,13 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from .forms import UploadFileForm
 from .google_drive import upload_files
 
 def upload_view(request):
     if request.method == 'POST':
         form = UploadFileForm(request.POST, request.FILES)
+        files = request.FILES.getlist('file')
+        
         if form.is_valid():
-            guest_name = form.cleaned_data['guest_name']
-            
-            if not files:
             guest_name = form.cleaned_data['guest_name']
             
             if not files:
