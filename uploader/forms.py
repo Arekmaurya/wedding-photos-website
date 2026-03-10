@@ -1,5 +1,12 @@
 from django import forms
 
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
 class UploadFileForm(forms.Form):
     guest_name = forms.CharField(max_length=100, label="Your Name", required=True)
-    file = forms.FileField(widget=forms.ClearableFileInput(attrs={'multiple': True}), label='Select Photos & Videos')
+    file = forms.FileField(
+        widget=MultipleFileInput(attrs={'multiple': True}), 
+        label='Select Photos & Videos',
+        required=True
+    )
