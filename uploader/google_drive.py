@@ -10,10 +10,24 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 CLIENT_SECRET_FILE = 'client_secret.json'
 TOKEN_FILE = 'token.json'
 
+import json
+
 def get_drive_service():
     creds = None
-    if os.path.exists(TOKEN_FILE):
+    # 1. Try to load from environment variable (for Render/Production)
+    env_token = os.environ.get('GOOGLE_DRIVE_TOKEN')
+    if env_token:
+        try:
+            token_data = json.loads(env_token)
+            creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+        except Exception as e:
+            print(f"Error loading token from environment: {e}")
+
+    # 2. Try to load from local file (for Local Desktop)
+    if not creds and os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        
+    # 3. If still no valid creds, trigger the browser flow (Only works on Desktop)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -21,6 +35,7 @@ def get_drive_service():
             flow = InstalledAppFlow.from_client_secrets_file(
                 CLIENT_SECRET_FILE, SCOPES)
             creds = flow.run_local_server(port=0)
+        # Update/Create local token file
         with open(TOKEN_FILE, 'w') as token:
             token.write(creds.to_json())
             
