@@ -146,8 +146,14 @@ def upload_single_file(service, folder_id, file):
 
 def list_all_uploads():
     """Fetches all folders and their files from the Wedding Uploads directory."""
-    service = get_drive_service()
-    wedding_root_folder_id = '1o8gaoOc8nOKuFGt0Ne5YycsP_2whQfsw'
+    # 1. Get the "Wedding Uploads" root folder ID
+    results = service.files().list(
+        q="name='Wedding Uploads' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        spaces='drive', fields='files(id)').execute()
+    items = results.get('files', [])
+    if not items:
+        return []
+    wedding_root_folder_id = items[0]['id']
     
     # 1. List all folders (each folder is one guest upload session)
     query = f"'{wedding_root_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
