@@ -40,15 +40,23 @@ def get_drive_service():
     # 3. If still no valid creds, trigger the browser flow (Only works on Desktop)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
+            print("Refreshing Google Drive credentials...")
             creds.refresh(Request())
         else:
+            print("No valid credentials found. Starting local auth flow...")
             # Re-read client secret from correct path
             flow = InstalledAppFlow.from_client_secrets_file(
                 client_secret_file, SCOPES)
             creds = flow.run_local_server(port=0)
-        # Update/Create local token file
-        with open(token_file, 'w') as token:
-            token.write(creds.to_json())
+        
+        # Update local token file only if it's not a read-only secret path
+        if not token_file.startswith('/etc/secrets/'):
+            try:
+                with open(token_file, 'w') as token:
+                    token.write(creds.to_json())
+                print(f"Updated local token file: {token_file}")
+            except Exception as e:
+                print(f"Failed to update token file: {e}")
             
     return build('drive', 'v3', credentials=creds)
 
