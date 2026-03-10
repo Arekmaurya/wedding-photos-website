@@ -114,14 +114,15 @@ def upload_files(guest_name, files, message=None):
             print(f"Error saving message: {e}", flush=True)
 
     # 2. Upload each file to that folder
+    import gc
     for file in files:
         file_metadata = {
             'name': file.name,
             'parents': [guest_folder_id]
         }
         
-        # We need to read the Django InMemoryUploadedFile or TemporaryUploadedFile
-        media = MediaIoBaseUpload(file.file, mimetype=file.content_type, resumable=True)
+        # Explicitly set a very small chunk size (1MB) to prevent RAM spikes on Render
+        media = MediaIoBaseUpload(file.file, mimetype=file.content_type, resumable=True, chunksize=1024*1024)
         
         request = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True)
         response = None
@@ -130,6 +131,9 @@ def upload_files(guest_name, files, message=None):
             if status:
                 print(f"Uploaded {int(status.progress() * 100)}% of {file.name}.")
         print(f"File ID: {response.get('id')} uploaded successfully.")
+        
+        # Force memory cleanup after each file is finished
+        gc.collect()
 
 def list_all_uploads():
     """Fetches all folders and their files from the Wedding Uploads directory."""
