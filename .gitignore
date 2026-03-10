@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+.env
+
+# Django
+db.sqlite3
+*.log
+
+# Sensitive APIs
+client_secret.json
+token.json
