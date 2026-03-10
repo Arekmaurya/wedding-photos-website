@@ -83,17 +83,37 @@ def get_or_create_folder(service, folder_name, parent_id=None):
     folder = service.files().create(body=folder_metadata, fields='id', supportsAllDrives=True).execute()
     return folder.get('id')
 
-def upload_files(guest_name, files):
+def upload_files(guest_name, files, message=None):
     """Upload list of files to a specific folder named after the guest."""
     service = get_drive_service()
     
     # Optional: If you want a root "Wedding Uploads" folder, specify its ID here.
-    # Otherwise it uploads to the service account's root drive.
     wedding_root_folder_id = '1o8gaoOc8nOKuFGt0Ne5YycsP_2whQfsw' 
     
-    # Get or create a specific folder for this guest inside the Wedding root folder
-    guest_folder_id = get_or_create_folder(service, guest_name, parent_id=wedding_root_folder_id)
+    # Create a unique folder for THIS upload session/guest
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    folder_name = f"{guest_name}_{timestamp}"
     
+    # Get or create a specific folder for this guest inside the Wedding root folder
+    guest_folder_id = get_or_create_folder(service, folder_name, parent_id=wedding_root_folder_id)
+    
+    # 1. Upload the guest message if it exists
+    if message and message.strip():
+        file_metadata = {
+            'name': 'message.txt',
+            'parents': [guest_folder_id]
+        }
+        fh = io.BytesIO(message.encode('utf-8'))
+        media = MediaIoBaseUpload(fh, mimetype='text/plain', resumable=True)
+        
+        try:
+            msg_file = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
+            print(f"Message saved with ID: {msg_file.get('id')}", flush=True)
+        except Exception as e:
+            print(f"Error saving message: {e}", flush=True)
+
+    # 2. Upload each file to that folder
     for file in files:
         file_metadata = {
             'name': file.name,
@@ -108,5 +128,5 @@ def upload_files(guest_name, files):
         while response is None:
             status, response = request.next_chunk()
             if status:
-                print(f"Uploaded {int(status.progress() * 100)}%.")
+                print(f"Uploaded {int(status.progress() * 100)}% of {file.name}.")
         print(f"File ID: {response.get('id')} uploaded successfully.")
