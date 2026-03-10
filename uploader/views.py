@@ -56,3 +56,26 @@ def upload_view(request):
         form = UploadFileForm()
     
     return render(request, 'uploader/upload.html', {'form': form})
+
+def gallery_view(request):
+    """A private page to view all uploaded photos and videos."""
+    import os
+    admin_pass = os.environ.get('ADMIN_PASSWORD', 'wedding2026') # Default fallback
+    
+    # Simple session-based or POST-based "login"
+    authorized = request.session.get('admin_authorized', False)
+    
+    if request.method == 'POST':
+        password = request.POST.get('password')
+        if password == admin_pass:
+            request.session['admin_authorized'] = True
+            authorized = True
+        else:
+            return render(request, 'uploader/admin_login.html', {'error': 'Incorrect password'})
+            
+    if not authorized:
+        return render(request, 'uploader/admin_login.html')
+
+    from .google_drive import list_all_uploads
+    uploads = list_all_uploads()
+    return render(request, 'uploader/admin_gallery.html', {'uploads': uploads})

@@ -130,3 +130,56 @@ def upload_files(guest_name, files, message=None):
             if status:
                 print(f"Uploaded {int(status.progress() * 100)}% of {file.name}.")
         print(f"File ID: {response.get('id')} uploaded successfully.")
+
+def list_all_uploads():
+    """Fetches all folders and their files from the Wedding Uploads directory."""
+    service = get_drive_service()
+    wedding_root_folder_id = '1o8gaoOc8nOKuFGt0Ne5YycsP_2whQfsw'
+    
+    # 1. List all folders (each folder is one guest upload session)
+    query = f"'{wedding_root_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    results = service.files().list(
+        q=query, 
+        fields='files(id, name, createdTime)', 
+        orderBy='createdTime desc',
+        supportsAllDrives=True, 
+        includeItemsFromAllDrives=True
+    ).execute()
+    folders = results.get('files', [])
+    
+    gallery_data = []
+    
+    # 2. For each folder, get its files
+    for folder in folders:
+        folder_id = folder['id']
+        file_query = f"'{folder_id}' in parents and trashed=false"
+        file_results = service.files().list(
+            q=file_query, 
+            fields='files(id, name, mimeType, webViewLink, thumbnailLink)',
+            supportsAllDrives=True, 
+            includeItemsFromAllDrives=True
+        ).execute()
+        files = file_results.get('files', [])
+        
+        # Look for the message.txt if it exists
+        message = ""
+        media_files = []
+        for f in files:
+            if f['name'] == 'message.txt':
+                # Fetch content of message.txt
+                try:
+                    request = service.files().get_media(fileId=f['id'])
+                    message = request.execute().decode('utf-8')
+                except:
+                    message = "Could not load message."
+            elif 'image' in f['mimeType'] or 'video' in f['mimeType']:
+                media_files.append(f)
+        
+        gallery_data.append({
+            'folder_name': folder['name'],
+            'created_at': folder['createdTime'],
+            'message': message,
+            'files': media_files
+        })
+        
+    return gallery_data

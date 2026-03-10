@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wedding Gallery - Admin</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #cba87c;
+            --text-main: #2c2c2c;
+            --bg-color: #fcf9f6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        header {
+            background: white;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            color: var(--text-main);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 4rem;
+        }
+
+        .guest-session {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        }
+
+        .guest-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 1rem;
+        }
+
+        .guest-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .timestamp {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .message-box {
+            font-style: italic;
+            color: #555;
+            background: #fafafa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--primary);
+            font-size: 1.05rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .media-card {
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+            border: 1px solid #f0f0f0;
+        }
+
+        .media-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .media-thumb {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #eee;
+        }
+
+        .file-info {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-name {
+            font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
+        }
+
+        .view-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .view-link:hover {
+            text-decoration: underline;
+        }
+
+        .video-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            background: #f0f0f0;
+            color: #666;
+            font-weight: 600;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Himanshu & Namrata's Album</h1>
+        <p style="color: var(--primary); font-weight: 500; font-size: 0.9rem; margin-top: 5px;">Admin Dashboard</p>
+    </header>
+
+    <div class="container">
+        {% if uploads %}
+        {% for session in uploads %}
+        <div class="guest-session">
+            <div class="guest-header">
+                <span class="guest-name">{{ session.folder_name }}</span>
+                <span class="timestamp">{{ session.created_at }}</span>
+            </div>
+
+            {% if session.message %}
+            <div class="message-box">
+                "{{ session.message }}"
+            </div>
+            {% endif %}
+
+            <div class="grid">
+                {% for file in session.files %}
+                <div class="media-card">
+                    {% if 'image' in file.mimeType %}
+                    <img src="{{ file.thumbnailLink|default:'' }}" class="media-thumb" loading="lazy">
+                    {% else %}
+                    <div class="video-label">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                        <span>Video</span>
+                    </div>
+                    {% endif %}
+                    <div class="file-info">
+                        <span class="file-name">{{ file.name }}</span>
+                        <a href="{{ file.webViewLink }}" target="_blank" class="view-link">View Original</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <p>No uploads yet. Your memories will appear here once guests start sharing!</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+
+</html>
