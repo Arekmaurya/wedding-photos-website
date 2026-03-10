@@ -1,6 +1,6 @@
 from django import forms
 
-class MultipleFileInput(forms.ClearableFileInput):
+class MultipleFileInput(forms.FileInput):
     allow_multiple_selected = True
 
 class UploadFileForm(forms.Form):
