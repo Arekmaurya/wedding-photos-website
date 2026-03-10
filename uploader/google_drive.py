@@ -13,6 +13,13 @@ TOKEN_FILE = 'token.json'
 import json
 
 def get_drive_service():
+    # Define potential paths for secret files (Render puts them in /etc/secrets/)
+    RENDER_TOKEN_PATH = '/etc/secrets/token.json'
+    RENDER_CLIENT_SECRET_PATH = '/etc/secrets/client_secret.json'
+    
+    token_file = RENDER_TOKEN_PATH if os.path.exists(RENDER_TOKEN_PATH) else TOKEN_FILE
+    client_secret_file = RENDER_CLIENT_SECRET_PATH if os.path.exists(RENDER_CLIENT_SECRET_PATH) else CLIENT_SECRET_FILE
+
     creds = None
     # 1. Try to load from environment variable (for Render/Production)
     env_token = os.environ.get('GOOGLE_DRIVE_TOKEN')
@@ -23,20 +30,24 @@ def get_drive_service():
         except Exception as e:
             print(f"Error loading token from environment: {e}")
 
-    # 2. Try to load from local file (for Local Desktop)
-    if not creds and os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    # 2. Try to load from file (Local or Render Secret File)
+    if not creds and os.path.exists(token_file):
+        try:
+            creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+        except Exception as e:
+            print(f"Error loading token from file {token_file}: {e}")
         
     # 3. If still no valid creds, trigger the browser flow (Only works on Desktop)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            # Re-read client secret from correct path
             flow = InstalledAppFlow.from_client_secrets_file(
-                CLIENT_SECRET_FILE, SCOPES)
+                client_secret_file, SCOPES)
             creds = flow.run_local_server(port=0)
         # Update/Create local token file
-        with open(TOKEN_FILE, 'w') as token:
+        with open(token_file, 'w') as token:
             token.write(creds.to_json())
             
     return build('drive', 'v3', credentials=creds)
