@@ -28,6 +28,15 @@ def upload_view(request):
                     'form': form, 
                     'error_message': error_msg
                 })
+            
+            if len(files) > 100:
+                error_msg = 'A maximum of 100 files can be uploaded at once.'
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': error_msg})
+                return render(request, 'uploader/upload.html', {
+                    'form': form, 
+                    'error_message': error_msg
+                })
 
             print(f"Files received for {guest_name}: {[f.name for f in files]}", flush=True)
             

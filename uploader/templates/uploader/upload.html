@@ -337,6 +337,11 @@
 
                 if (!guestName || files.length === 0) return;
 
+                if (files.length > 100) {
+                    alert('Please select a maximum of 100 files at a time. This helps ensure a successful upload.');
+                    return;
+                }
+
                 // Show overlay and progress bar
                 overlay.style.display = 'flex';
                 document.getElementById('progressContainer').style.display = 'block';
