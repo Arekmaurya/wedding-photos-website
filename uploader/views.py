@@ -5,18 +5,10 @@ from .google_drive import upload_files
 def upload_view(request):
     if request.method == 'POST':
         form = UploadFileForm(request.POST, request.FILES)
-        files = request.FILES.getlist('file')
-        
-        print(f"--- DEBUG UPLOAD ---", flush=True)
-        print(f"Method: {request.method}", flush=True)
-        print(f"Content-Type: {request.META.get('CONTENT_TYPE')}", flush=True)
-        print(f"Content-Length: {request.META.get('CONTENT_LENGTH')}", flush=True)
-        print(f"POST keys: {list(request.POST.keys())}", flush=True)
-        print(f"FILES keys: {list(request.FILES.keys())}", flush=True)
-        print(f"File count for 'file': {len(files)}", flush=True)
-        print(f"--------------------", flush=True)
-        
         if form.is_valid():
+            guest_name = form.cleaned_data['guest_name']
+            
+            if not files:
             guest_name = form.cleaned_data['guest_name']
             
             if not files:
