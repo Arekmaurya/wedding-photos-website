@@ -9,10 +9,18 @@ def upload_view(request):
             guest_name = form.cleaned_data['guest_name']
             files = request.FILES.getlist('file')
             
-            # Send the files and guest_name to Google Drive
-            upload_files(guest_name, files)
+            print(f"Files received for {guest_name}: {[f.name for f in files]}", flush=True)
+            
+            try:
+                # Send the files and guest_name to Google Drive
+                upload_files(guest_name, files)
+            except Exception as e:
+                print(f"UPLOAD ERROR: {e}", flush=True)
+                return render(request, 'uploader/upload.html', {'form': form, 'error': str(e)})
             
             return render(request, 'uploader/success.html', {'guest_name': guest_name})
+        else:
+            print(f"FORM INVALID: {form.errors}", flush=True)
     else:
         form = UploadFileForm()
     return render(request, 'uploader/upload.html', {'form': form})
