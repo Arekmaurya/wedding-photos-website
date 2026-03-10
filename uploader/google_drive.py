@@ -147,59 +147,75 @@ def upload_single_file(service, folder_id, file):
 def list_all_uploads():
     """Fetches all folders and their files from the Wedding Uploads directory."""
     service = get_drive_service()
-    # 1. Get the "Wedding Uploads" root folder ID
-    results = service.files().list(
-        q="name='Wedding Uploads' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-        spaces='drive', fields='files(id)').execute()
-    items = results.get('files', [])
-    if not items:
+    if not service:
+        print("ERROR: Service unavailable in list_all_uploads", flush=True)
         return []
-    wedding_root_folder_id = items[0]['id']
+
+    # 1. Get the "Wedding Uploads" root folder ID
+    try:
+        results = service.files().list(
+            q="name='Wedding Uploads' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+            spaces='drive', fields='files(id)').execute()
+        items = results.get('files', [])
+        if not items:
+            print("INFO: 'Wedding Uploads' folder not found.", flush=True)
+            return []
+        wedding_root_folder_id = items[0]['id']
+    except Exception as e:
+        print(f"ERROR fetching root folder: {e}", flush=True)
+        return []
     
-    # 1. List all folders (each folder is one guest upload session)
-    query = f"'{wedding_root_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    results = service.files().list(
-        q=query, 
-        fields='files(id, name, createdTime)', 
-        orderBy='createdTime desc',
-        supportsAllDrives=True, 
-        includeItemsFromAllDrives=True
-    ).execute()
-    folders = results.get('files', [])
-    
-    gallery_data = []
-    
-    # 2. For each folder, get its files
-    for folder in folders:
-        folder_id = folder['id']
-        file_query = f"'{folder_id}' in parents and trashed=false"
-        file_results = service.files().list(
-            q=file_query, 
-            fields='files(id, name, mimeType, webViewLink, thumbnailLink)',
+    # 2. List all folders (each folder is one guest upload session)
+    try:
+        query = f"'{wedding_root_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        results = service.files().list(
+            q=query, 
+            fields='files(id, name, createdTime)', 
+            orderBy='createdTime desc',
             supportsAllDrives=True, 
             includeItemsFromAllDrives=True
         ).execute()
-        files = file_results.get('files', [])
-        
-        # Look for the message.txt if it exists
-        message = ""
-        media_files = []
-        for f in files:
-            if f['name'] == 'message.txt':
-                # Fetch content of message.txt
-                try:
-                    request = service.files().get_media(fileId=f['id'])
-                    message = request.execute().decode('utf-8')
-                except:
-                    message = "Could not load message."
-            elif 'image' in f['mimeType'] or 'video' in f['mimeType']:
-                media_files.append(f)
-        
-        gallery_data.append({
-            'folder_name': folder['name'],
-            'created_at': folder['createdTime'],
-            'message': message,
-            'files': media_files
-        })
+        folders = results.get('files', [])
+    except Exception as e:
+        print(f"ERROR listing guest folders: {e}", flush=True)
+        return []
+    
+    gallery_data = []
+    
+    # 3. For each folder, get its files
+    for folder in folders:
+        try:
+            folder_id = folder['id']
+            file_query = f"'{folder_id}' in parents and trashed=false"
+            file_results = service.files().list(
+                q=file_query, 
+                fields='files(id, name, mimeType, webViewLink, thumbnailLink)',
+                supportsAllDrives=True, 
+                includeItemsFromAllDrives=True
+            ).execute()
+            files = file_results.get('files', [])
+            
+            # Look for the message.txt if it exists
+            message = ""
+            media_files = []
+            for f in files:
+                if f['name'] == 'message.txt':
+                    try:
+                        request = service.files().get_media(fileId=f['id'])
+                        message = request.execute().decode('utf-8')
+                    except Exception as e:
+                        print(f"Warning: Could not read message.txt for {folder['name']}: {e}", flush=True)
+                        message = "Could not load message."
+                elif 'image' in f['mimeType'] or 'video' in f['mimeType']:
+                    media_files.append(f)
+            
+            gallery_data.append({
+                'folder_name': folder['name'],
+                'created_at': folder['createdTime'],
+                'message': message,
+                'files': media_files
+            })
+        except Exception as e:
+            print(f"Warning: Skipping folder {folder.get('name')} due to error: {e}", flush=True)
         
     return gallery_data

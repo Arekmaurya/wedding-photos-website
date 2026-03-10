@@ -55,31 +55,32 @@ def upload_view(request):
 
 def gallery_view(request):
     """A private page to view all uploaded photos and videos."""
-    import os
-    admin_pass = os.environ.get('ADMIN_PASSWORD', 'wedding2026') # Default fallback
-    
-    # Simple session-based or POST-based "login"
-    authorized = request.session.get('admin_authorized', False)
-    
-    if request.method == 'POST':
-        password = request.POST.get('password')
-        if password == admin_pass:
-            request.session['admin_authorized'] = True
-            authorized = True
-        else:
-            return render(request, 'uploader/admin_login.html', {'error': 'Incorrect password'})
-            
-    if not authorized:
-        return render(request, 'uploader/admin_login.html')
-
     try:
+        import os
+        admin_pass = os.environ.get('ADMIN_PASSWORD', 'wedding2026')
+        
+        # Check authorization
+        authorized = request.session.get('admin_authorized', False)
+        
+        if request.method == 'POST':
+            password = request.POST.get('password')
+            if password == admin_pass:
+                request.session['admin_authorized'] = True
+                request.session.modified = True
+                authorized = True
+            else:
+                return render(request, 'uploader/admin_login.html', {'error': 'Incorrect password'})
+                
+        if not authorized:
+            return render(request, 'uploader/admin_login.html')
+
         from .google_drive import list_all_uploads
         uploads = list_all_uploads()
         return render(request, 'uploader/admin_gallery.html', {'uploads': uploads})
+
     except Exception as e:
         import traceback
-        error_msg = f"Gallery Error: {str(e)}\n{traceback.format_exc()}"
+        error_msg = f"CRITICAL GALLERY ERROR: {str(e)}\n{traceback.format_exc()}"
         print(error_msg, flush=True)
-        # For now, return the error so we can see it in the browser (if DEBUG=True, but even on 500 it helps sometimes)
         from django.http import HttpResponse
-        return HttpResponse(f"<pre>{error_msg}</pre>", status=500)
+        return HttpResponse(f"<h3>An unexpected error occurred</h3><pre>{error_msg}</pre>", status=500)
