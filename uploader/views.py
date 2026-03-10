@@ -1,7 +1,8 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from .forms import UploadFileForm
-from .google_drive import upload_files
+# upload_files was removed in favor of sequential uploads
+# from .google_drive import upload_files
 
 def upload_view(request):
     # Handle the success redirect from AJAX
@@ -10,60 +11,46 @@ def upload_view(request):
         return render(request, 'uploader/success.html', {'guest_name': guest_name})
 
     if request.method == 'POST':
-        form = UploadFileForm(request.POST, request.FILES)
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        
+        # 1. Handle Initiation (Create Folder & Save Message)
+        if 'initiate' in request.POST:
+            guest_name = request.POST.get('guest_name', 'Anonymous').strip()
+            message = request.POST.get('message', '').strip()
+            
+            from .google_drive import get_drive_service, create_guest_folder, save_guest_message
+            service = get_drive_service()
+            if not service:
+                return JsonResponse({'success': False, 'error': 'Google Drive service unavailable.'}, status=500)
+            
+            folder_id = create_guest_folder(service, guest_name)
+            if message:
+                save_guest_message(service, folder_id, message)
+            
+            return JsonResponse({'success': True, 'folder_id': folder_id})
+
+        # 2. Handle Single File Upload
+        folder_id = request.POST.get('folder_id')
         files = request.FILES.getlist('file')
         
-        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or \
-                  request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+        if not folder_id:
+            return JsonResponse({'success': False, 'error': 'No upload session found.'}, status=400)
+            
+        if not files:
+            return JsonResponse({'success': False, 'error': 'No file received.'}, status=400)
 
-        if form.is_valid():
-            guest_name = form.cleaned_data['guest_name']
-            message = form.cleaned_data.get('message', '')
-            
-            if not files:
-                error_msg = 'Please select at least one photo or video to upload.'
-                if is_ajax:
-                    return JsonResponse({'success': False, 'error': error_msg})
-                return render(request, 'uploader/upload.html', {
-                    'form': form, 
-                    'error_message': error_msg
-                })
-            
-            if len(files) > 100:
-                error_msg = 'A maximum of 100 files can be uploaded at once.'
-                if is_ajax:
-                    return JsonResponse({'success': False, 'error': error_msg})
-                return render(request, 'uploader/upload.html', {
-                    'form': form, 
-                    'error_message': error_msg
-                })
+        from .google_drive import get_drive_service, upload_single_file
+        service = get_drive_service()
+        try:
+            # We treat 'files' as a list but it should be exactly 1 file in this new flow
+            file_id = upload_single_file(service, folder_id, files[0])
+            return JsonResponse({'success': True, 'file_id': file_id})
+        except Exception as e:
+            print(f"Upload error: {e}", flush=True)
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-            print(f"Files received for {guest_name}: {[f.name for f in files]}", flush=True)
-            
-            try:
-                # Send the files, guest_name, and message to Google Drive
-                upload_files(guest_name, files, message=message)
-                
-                if is_ajax:
-                    return JsonResponse({'success': True})
-                return render(request, 'uploader/success.html', {'guest_name': guest_name})
-            
-            except Exception as e:
-                print(f"UPLOAD ERROR: {e}", flush=True)
-                error_msg = f'Drive Error: {str(e)}'
-                if is_ajax:
-                    return JsonResponse({'success': False, 'error': error_msg})
-                return render(request, 'uploader/upload.html', {
-                    'form': form, 
-                    'error_message': error_msg
-                })
-        else:
-            print(f"FORM INVALID: {form.errors}", flush=True)
-            if is_ajax:
-                return JsonResponse({'success': False, 'error': 'Form invalid. Please check your name.'})
-    else:
-        form = UploadFileForm()
-    
+    # Standard GET request
+    form = UploadFileForm()
     return render(request, 'uploader/upload.html', {'form': form})
 
 def gallery_view(request):

@@ -83,57 +83,66 @@ def get_or_create_folder(service, folder_name, parent_id=None):
     folder = service.files().create(body=folder_metadata, fields='id', supportsAllDrives=True).execute()
     return folder.get('id')
 
-def upload_files(guest_name, files, message=None):
-    """Upload list of files to a specific folder named after the guest."""
-    service = get_drive_service()
-    
-    # Optional: If you want a root "Wedding Uploads" folder, specify its ID here.
-    wedding_root_folder_id = '1o8gaoOc8nOKuFGt0Ne5YycsP_2whQfsw' 
-    
-    # Create a unique folder for THIS upload session/guest
+def create_guest_folder(service, guest_name):
+    """Creates a unique folder for a guest's upload session."""
     from datetime import datetime
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"{guest_name}_{timestamp}"
     
-    # Get or create a specific folder for this guest inside the Wedding root folder
-    guest_folder_id = get_or_create_folder(service, folder_name, parent_id=wedding_root_folder_id)
-    
-    # 1. Upload the guest message if it exists
-    if message and message.strip():
-        file_metadata = {
-            'name': 'message.txt',
-            'parents': [guest_folder_id]
-        }
-        fh = io.BytesIO(message.encode('utf-8'))
-        media = MediaIoBaseUpload(fh, mimetype='text/plain', resumable=True)
-        
+    # Root folder ID for "Wedding Uploads"
+    # This should be dynamically fetched if needed, but using existing pattern
+    # Actually let's fetch it to be safe
+    results = service.files().list(
+        q="name='Wedding Uploads' and mimeType='application/vnd.google-apps.folder'",
+        spaces='drive', fields='files(id)').execute()
+    items = results.get('files', [])
+    if not items:
+        # Create it if it doesn't exist
+        folder_metadata = {'name': 'Wedding Uploads', 'mimeType': 'application/vnd.google-apps.folder'}
+        root_folder_id = service.files().create(body=folder_metadata, fields='id').execute().get('id')
+    else:
+        root_folder_id = items[0]['id']
+
+    folder_metadata = {
+        'name': folder_name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [root_folder_id]
+    }
+    folder = service.files().create(body=folder_metadata, fields='id').execute()
+    return folder.get('id')
+
+def save_guest_message(service, folder_id, message):
+    """Saves the guest message as a .txt file in the specified folder."""
+    if message:
         try:
-            msg_file = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
-            print(f"Message saved with ID: {msg_file.get('id')}", flush=True)
+            from googleapiclient.http import MediaIoBaseUpload
+            import io
+            file_metadata = {'name': 'message.txt', 'parents': [folder_id]}
+            media = MediaIoBaseUpload(io.BytesIO(message.encode('utf-8')), mimetype='text/plain')
+            service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         except Exception as e:
             print(f"Error saving message: {e}", flush=True)
 
-    # 2. Upload each file to that folder
+def upload_single_file(service, folder_id, file):
+    """Uploads a single file to a specific folder with low-memory chunking."""
+    from googleapiclient.http import MediaIoBaseUpload
     import gc
-    for file in files:
-        file_metadata = {
-            'name': file.name,
-            'parents': [guest_folder_id]
-        }
-        
-        # Explicitly set a very small chunk size (1MB) to prevent RAM spikes on Render
-        media = MediaIoBaseUpload(file.file, mimetype=file.content_type, resumable=True, chunksize=1024*1024)
-        
-        request = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True)
-        response = None
-        while response is None:
-            status, response = request.next_chunk()
-            if status:
-                print(f"Uploaded {int(status.progress() * 100)}% of {file.name}.")
-        print(f"File ID: {response.get('id')} uploaded successfully.")
-        
-        # Force memory cleanup after each file is finished
-        gc.collect()
+    
+    file_metadata = {
+        'name': file.name,
+        'parents': [folder_id]
+    }
+    
+    # Low-memory chunking (1MB)
+    media = MediaIoBaseUpload(file.file, mimetype=file.content_type, resumable=True, chunksize=1024*1024)
+    
+    request = service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True)
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+    
+    gc.collect() # Immediate cleanup
+    return response.get('id')
 
 def list_all_uploads():
     """Fetches all folders and their files from the Wedding Uploads directory."""

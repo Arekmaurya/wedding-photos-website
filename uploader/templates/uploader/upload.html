@@ -342,69 +342,82 @@
                 }
             });
 
-            form.addEventListener('submit', function (e) {
+            form.addEventListener('submit', async function (e) {
                 e.preventDefault();
 
                 const guestName = document.querySelector('input[name="guest_name"]').value.trim();
+                const message = document.querySelector('textarea[name="message"]').value.trim();
                 const files = fileInput.files;
 
                 if (!guestName || files.length === 0) return;
 
-                if (files.length > 100) {
-                    alert('Please select a maximum of 100 files at a time. This helps ensure a successful upload.');
-                    return;
-                }
-
-                // Show overlay and progress bar
+                // Show overlay and initial status
                 overlay.style.display = 'flex';
                 document.getElementById('progressContainer').style.display = 'block';
                 document.getElementById('percentageText').style.display = 'block';
+                const statusText = document.getElementById('statusText');
+                const progressBar = document.getElementById('progressBar');
+                const percentageText = document.getElementById('percentageText');
 
-                const formData = new FormData(form);
-                const xhr = new XMLHttpRequest();
+                try {
+                    // 1. Initiate Upload (Create Folder)
+                    statusText.textContent = "Creating your unique album folder...";
+                    const initData = new FormData();
+                    initData.append('initiate', '1');
+                    initData.append('guest_name', guestName);
+                    initData.append('message', message);
+                    initData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
-                xhr.open('POST', '', true);
+                    const initResponse = await fetch('', {
+                        method: 'POST',
+                        body: initData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const initResult = await initResponse.json();
 
-                // Track upload progress
-                xhr.upload.onprogress = function (e) {
-                    if (e.lengthComputable) {
-                        const percentComplete = Math.round((e.loaded / e.total) * 100);
-                        document.getElementById('progressBar').style.width = percentComplete + '%';
-                        document.getElementById('percentageText').textContent = percentComplete + '%';
-
-                        if (percentComplete === 100) {
-                            document.getElementById('statusText').textContent = "Processing and saving to Drive...";
-                        }
+                    if (!initResult.success) {
+                        throw new Error(initResult.error || 'Failed to initialize upload.');
                     }
-                };
 
-                xhr.onload = function () {
-                    if (xhr.status === 200) {
-                        try {
-                            const response = JSON.parse(xhr.responseText);
-                            if (response.success) {
-                                // Dynamic success message or redirect
-                                window.location.href = '{% url "upload" %}?success=1&name=' + encodeURIComponent(guestName);
-                            } else {
-                                alert('Upload failed: ' + (response.error || 'Unknown error'));
-                                overlay.style.display = 'none';
-                            }
-                        } catch (err) {
-                            // If not JSON, it might be the success HTML or fallback
-                            window.location.href = '{% url "upload" %}?success=1&name=' + encodeURIComponent(guestName);
+                    const folderId = initResult.folder_id;
+                    const totalFiles = files.length;
+
+                    // 2. Upload Files Sequentially
+                    for (let i = 0; i < totalFiles; i++) {
+                        const file = files[i];
+                        statusText.textContent = `Uploading file ${i + 1} of ${totalFiles}...`;
+
+                        const fileData = new FormData();
+                        fileData.append('folder_id', folderId);
+                        fileData.append('file', file);
+                        fileData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+                        const uploadResponse = await fetch('', {
+                            method: 'POST',
+                            body: fileData,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        const uploadResult = await uploadResponse.json();
+
+                        if (!uploadResult.success) {
+                            throw new Error(`Failed to upload ${file.name}: ${uploadResult.error}`);
                         }
-                    } else {
-                        alert('Error during upload. Please try again.');
-                        overlay.style.display = 'none';
-                    }
-                };
 
-                xhr.onerror = function () {
-                    alert('Network error occurred.');
+                        // Update progress bar
+                        const percentComplete = Math.round(((i + 1) / totalFiles) * 100);
+                        progressBar.style.width = percentComplete + '%';
+                        percentageText.textContent = percentComplete + '%';
+                    }
+
+                    // 3. Success!
+                    statusText.textContent = "All memories saved! Redirecting...";
+                    window.location.href = '{% url "upload" %}?success=1&name=' + encodeURIComponent(guestName);
+
+                } catch (error) {
+                    console.error('Upload Error:', error);
+                    alert('Error: ' + error.message);
                     overlay.style.display = 'none';
-                };
-
-                xhr.send(formData);
+                }
             });
         });
     </script>
