@@ -8,5 +8,5 @@ class UploadFileForm(forms.Form):
     file = forms.FileField(
         widget=MultipleFileInput(attrs={'multiple': True}), 
         label='Select Photos & Videos',
-        required=True
+        required=False  # Handled manually in view
     )
