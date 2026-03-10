@@ -72,6 +72,14 @@ def gallery_view(request):
     if not authorized:
         return render(request, 'uploader/admin_login.html')
 
-    from .google_drive import list_all_uploads
-    uploads = list_all_uploads()
-    return render(request, 'uploader/admin_gallery.html', {'uploads': uploads})
+    try:
+        from .google_drive import list_all_uploads
+        uploads = list_all_uploads()
+        return render(request, 'uploader/admin_gallery.html', {'uploads': uploads})
+    except Exception as e:
+        import traceback
+        error_msg = f"Gallery Error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg, flush=True)
+        # For now, return the error so we can see it in the browser (if DEBUG=True, but even on 500 it helps sometimes)
+        from django.http import HttpResponse
+        return HttpResponse(f"<pre>{error_msg}</pre>", status=500)
